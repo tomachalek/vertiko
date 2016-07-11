@@ -5,9 +5,14 @@ module Vertparser =
     open System.IO
     open System.Text.RegularExpressions
 
-    type Attribute = {Name: string}
 
-    type Structure = {Name: string; Attrs: Attribute []}
+    type Lexeme = 
+        | Structure of Name: string * Attrs: Map<string, string> 
+        | StructureEnd of Name: string
+        | SelfClosingStructure of Name: string * Attrs: Map<string, string> 
+        | Text
+        | Empty
+
 
 
     let readFile (path:string) = seq {
@@ -41,11 +46,17 @@ module Vertparser =
     let isSelfClosingTag (t:string) : bool =
         t.StartsWith("<") && not (t.StartsWith "</") && t.EndsWith "/>"
 
-    let parseLine (line:string) =
+    let parseLine (line:string) : Lexeme =
         match line with
-        | x when isStartTag x -> (getTagName x, true, parseTag x)
-        | x when isEndTag x -> (getTagName x, false, Map.empty)
-        | x when isSelfClosingTag x -> (Some "#SELF", false, Map.empty)
-        | _ -> (Some "#TEXT", false, Map.empty)
+        | x when isStartTag x -> 
+            match getTagName x with
+                | Some tagName -> Structure(tagName, parseTag x)
+                | None -> Empty
+        | x when isEndTag x -> 
+            match getTagName x with
+                | Some tagName -> StructureEnd(tagName)
+                | None -> Empty
+        | x when isSelfClosingTag x -> SelfClosingStructure("#SELF", Map.empty)
+        | _ -> Text
     
 
